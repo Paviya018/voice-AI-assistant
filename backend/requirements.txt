@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+openai
+python-dotenv
+python-docx
+PyMuPDF
+aiofiles
+gTTS
+TTS
