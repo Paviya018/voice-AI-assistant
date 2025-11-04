@@ -13,7 +13,7 @@ export default function App() {
   const [avatarExpression, setAvatarExpression] = useState("🙂");
 
   const audioRef = useRef(null);
-  const backendURL = "http://127.0.0.1:8000";
+  const backendURL = "http://127.0.0.1:8000"; // your backend
 
   const languages = [
     "English",
@@ -32,6 +32,18 @@ export default function App() {
     "German",
   ];
 
+  // ✅ Ensure AudioContext resumes on user click
+  useEffect(() => {
+    const resumeAudioContext = () => {
+      if (window.AudioContext || window.webkitAudioContext) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") ctx.resume();
+      }
+    };
+    window.addEventListener("click", resumeAudioContext);
+    return () => window.removeEventListener("click", resumeAudioContext);
+  }, []);
+
   // 🎧 Avatar glow + expression sync with audio
   useEffect(() => {
     const audio = audioRef.current;
@@ -40,42 +52,45 @@ export default function App() {
     let audioCtx, analyser, source, dataArray, animationId;
 
     const setupAudioAnalyser = () => {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      source = audioCtx.createMediaElementSource(audio);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      const bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioCtx.createMediaElementSource(audio);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        const bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
 
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
+        // ✅ Connect analyser only for visualization — don’t override sound
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
 
-      const update = () => {
-        analyser.getByteFrequencyData(dataArray);
-        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255;
-        setAvatarGlow(avg);
+        const update = () => {
+          analyser.getByteFrequencyData(dataArray);
+          const avg =
+            dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255;
+          setAvatarGlow(avg);
 
-        // 😊 Change expressions dynamically
-        if (avg > 0.3) {
-          setAvatarExpression("😃"); // smiling while talking
-        } else if (avg > 0.1) {
-          setAvatarExpression("🙂");
-        } else {
-          setAvatarExpression("😌"); // calm face when silent
-        }
+          // 😃 facial reactions
+          if (avg > 0.3) setAvatarExpression("😃");
+          else if (avg > 0.1) setAvatarExpression("🙂");
+          else setAvatarExpression("😌");
 
-        animationId = requestAnimationFrame(update);
-      };
-      update();
+          animationId = requestAnimationFrame(update);
+        };
+        update();
+      }
     };
 
     const handlePlay = () => {
-      if (!audioCtx) setupAudioAnalyser();
+      setupAudioAnalyser();
+      audio.muted = false;
+      audio.volume = 1.0;
     };
+
     const handlePause = () => cancelAnimationFrame(animationId);
     const handleEnded = () => {
       setAvatarGlow(0);
-      setAvatarExpression("😴"); // sleeping face when done
+      setAvatarExpression("😴");
     };
 
     audio.addEventListener("play", handlePlay);
@@ -90,7 +105,7 @@ export default function App() {
     };
   }, [audioUrl]);
 
-  // 👁️ Random blinking effect
+  // 👁️ Blinking animation
   useEffect(() => {
     const blinkInterval = setInterval(() => {
       setAvatarExpression((prev) => (prev === "😉" ? "🙂" : "😉"));
@@ -98,7 +113,7 @@ export default function App() {
     return () => clearInterval(blinkInterval);
   }, []);
 
-  // 📄 Handle file submission
+  // 📄 Handle file upload
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return setError("Please upload a file first!");
@@ -152,7 +167,9 @@ export default function App() {
             <span
               className="text-5xl transition-all duration-100"
               style={{
-                transform: `scale(${1 + avatarGlow * 0.2}) rotate(${avatarGlow * 3}deg)`,
+                transform: `scale(${1 + avatarGlow * 0.2}) rotate(${
+                  avatarGlow * 3
+                }deg)`,
               }}
             >
               {avatarExpression}
@@ -226,6 +243,10 @@ export default function App() {
             <audio
               ref={audioRef}
               controls
+              autoPlay
+              muted={false}
+              volume={1.0}
+              crossOrigin="anonymous"
               src={audioUrl}
               className="w-full rounded-lg"
             />
