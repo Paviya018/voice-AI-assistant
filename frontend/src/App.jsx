@@ -13,7 +13,8 @@ export default function App() {
   const [avatarExpression, setAvatarExpression] = useState("🙂");
 
   const audioRef = useRef(null);
-  const backendURL = "http://127.0.0.1:8000"; // your backend
+  const backendURL = "https://voice-ai-assistant-a0by.onrender.com";
+ // your backend
 
   const languages = [
     "English",
