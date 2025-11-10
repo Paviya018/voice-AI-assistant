@@ -15,7 +15,7 @@ export default function App() {
 
   const audioRef = useRef(null);
 
-  // ✅ Your deployed backend HTTPS URL
+  // ✅ Your Render backend (HTTPS)
   const backendURL = "https://voice-ai-assistant-a0by.onrender.com";
 
   const languages = [
@@ -24,14 +24,22 @@ export default function App() {
     "Spanish", "French", "German",
   ];
 
-  // ✅ Wake backend when page loads (important for friends)
+  // ✅ Wake backend once when page loads
   useEffect(() => {
     axios.get(backendURL + "/")
       .then(() => setServerWaking(false))
       .catch(() => setServerWaking(false));
   }, []);
 
-  // ✅ Sync Avatar to Voice
+  // ✅ Keep backend awake (important fix for phone)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      axios.get(backendURL + "/").catch(() => {});
+    }, 40000); // ping every 40 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  // ✅ Avatar expression reacts to voice
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -65,10 +73,11 @@ export default function App() {
   }, [audioUrl]);
 
 
-  // ✅ Form Submit
+  // ✅ Submit Form
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return setError("Please upload a file!");
+
     setError("");
     setSummary("");
     setAudioUrl("");
@@ -88,27 +97,27 @@ export default function App() {
         setSummary(res.data.summary);
         setAudioUrl(`${backendURL}${res.data.audio_url}`);
       }
-    } catch (err) {
-      setError("⚠️ Backend is waking up, try again in 10 seconds.");
+    } catch {
+      setError("⚠️ Backend is waking up. Try again in 10 seconds.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Show backend waking message
+  // ✅ Show initial wake message
   if (serverWaking) {
     return (
       <div className="h-screen flex justify-center items-center text-white text-2xl">
-        🚀 Starting server... (This happens only once)
+        🚀 Waking up the server... please wait...
       </div>
     );
   }
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden text-white">
-      <ParticlesBg type="cobweb" bg={true} color="#ffffff" num={120} />
+      <ParticlesBg type="cobweb" bg={true} />
 
-      <div className="relative card max-w-lg w-full bg-white/10 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white/20">
+      <div className="relative max-w-lg w-full bg-white/10 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white/20">
 
         <h1 className="text-3xl font-bold text-center mb-6">Doc → Voice AI Assistant 🎧</h1>
 
@@ -119,7 +128,9 @@ export default function App() {
 
           <select value={language} onChange={(e) => setLanguage(e.target.value)}
             className="w-full bg-white/20 p-3 rounded-lg">
-            {languages.map((lang) => <option key={lang} className="text-black">{lang}</option>)}
+            {languages.map((lang) => (
+              <option key={lang} className="text-black">{lang}</option>
+            ))}
           </select>
 
           <button type="submit" disabled={loading}
@@ -129,16 +140,17 @@ export default function App() {
         </form>
 
         {error && <p className="text-red-400 text-center mt-4">{error}</p>}
+
         {summary && (
           <div className="mt-6 bg-white/10 p-4 rounded-xl">
             <h2 className="text-xl font-bold mb-2">📝 Summary</h2>
             <p>{summary}</p>
           </div>
         )}
+
         {audioUrl && (
           <audio ref={audioRef} controls autoPlay src={audioUrl} className="w-full mt-6" />
         )}
-
       </div>
     </div>
   );
